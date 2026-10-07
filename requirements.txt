@@ -1,0 +1,25 @@
+# Web Framework
+Django>=5.0,<5.1
+djangorestframework>=3.14.0
+
+# Database
+psycopg2-binary>=2.9.0
+
+# Asynchronous processing (Message Broker)
+celery>=5.3.6
+redis>=5.0.1
+
+# Mathematical Modeling & Operations Research
+pyomo>=6.7.1
+pandas>=2.2.0
+numpy>=1.26.0
+
+# HiGHS Solver (Python Interface)
+highspy>=1.7.0
+
+# Integrations / APIs
+requests>=2.31.0
+
+openpyxl>=3.1.2
+
+django-cors-headers==4.3.1

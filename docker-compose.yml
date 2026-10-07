@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dss_v2_db
+    environment:
+      - POSTGRES_USER=dss_user
+      - POSTGRES_PASSWORD=dss_password
+      - POSTGRES_DB=dss_v2_db
+    ports:
+      - "5433:5432"  # HOST:CONTAINER -> Evita conflicto con el Postgres antiguo (5432)
+    volumes:
+      - dss_v2_pgdata:/var/lib/postgresql/data
+    networks:
+      - dss_v2_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: dss_v2_redis
+    ports:
+      - "6380:6379"  # HOST:CONTAINER -> Evita conflicto con el Redis antiguo (6379)
+    networks:
+      - dss_v2_net
+
+  web:
+    build: .
+    container_name: dss_v2_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8000"  # HOST:CONTAINER -> Entrarás a la web por localhost:8080 en lugar de 8000
+    environment:
+      - POSTGRES_NAME=dss_v2_db
+      - POSTGRES_USER=dss_user
+      - POSTGRES_PASSWORD=dss_password
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    networks:
+      - dss_v2_net
+
+  worker:
+    build: .
+    container_name: dss_v2_worker
+    command: celery -A dss_core worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_NAME=dss_v2_db
+      - POSTGRES_USER=dss_user
+      - POSTGRES_PASSWORD=dss_password
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    networks:
+      - dss_v2_net
+
+volumes:
+  dss_v2_pgdata: # Volumen nuevo y limpio
+
+networks:
+  dss_v2_net:    # Red aislada
+    driver: bridge
