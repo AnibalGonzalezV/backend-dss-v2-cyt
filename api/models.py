@@ -145,3 +145,17 @@ class EventoSimulacion(models.Model):
     class Meta:
         db_table = 'evento_simulacion'
         ordering = ['hora_evento']
+
+class TrazabilidadFlujo(models.Model):
+    """
+    Registra la trazabilidad inferida post-optimización.
+    Permite saber qué patente alimentó a qué maquinaria.
+    """
+    viaje = models.ForeignKey(Viaje, on_delete=models.CASCADE)
+    origen = models.ForeignKey(Instalacion, related_name='flujos_salida', on_delete=models.CASCADE)
+    destino = models.ForeignKey(Instalacion, related_name='flujos_entrada', on_delete=models.CASCADE)
+    volumen_kg = models.FloatField()
+    hora_flujo = models.DateTimeField()
+    
+    def __str__(self):
+        return f"{self.viaje.patente} | {self.origen.nombre} -> {self.destino.nombre} ({self.volumen_kg}kg)"

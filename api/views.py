@@ -1,4 +1,4 @@
-from .viaje_utils import obtener_viaje_activo
+﻿from .viaje_utils import obtener_viaje_activo
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,7 +12,7 @@ class RecepcionGPSView(APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             
-            # 1. Buscar o crear camión
+            # 1. Buscar o crear camiÃ³n
             camion, _ = Camion.objects.get_or_create(
                 patente=data['patente'],
                 defaults={'es_externo': False}
@@ -43,7 +43,7 @@ class RecepcionRomanaView(APIView):
             # LA MAGIA ANTI "SIN PATENTE":
             es_externo = False
             if not patente or patente == 'SIN PATENTE':
-                # Generamos una patente virtual única (Ej: EXT-A1B2)
+                # Generamos una patente virtual Ãºnica (Ej: EXT-A1B2)
                 patente = f"EXT-{str(uuid.uuid4())[:4].upper()}"
                 es_externo = True
                 
@@ -56,7 +56,7 @@ class RecepcionRomanaView(APIView):
             viaje.estado_actual = 'ROMANA'
             viaje.save()
             
-            # Guardamos la Verdad Física (Wk del modelo)
+            # Guardamos la Verdad FÃ­sica (Wk del modelo)
             PesajeRomana.objects.create(
                 viaje=viaje,
                 peso_neto_kg=data['peso_neto'],
@@ -64,7 +64,7 @@ class RecepcionRomanaView(APIView):
                 payload_original=data.get('payload_raw', request.data)
             )
             
-            # TODO (Fase 4): Aquí llamaremos asíncronamente a Celery para que corra HiGHS
+            # TODO (Fase 4): AquÃ­ llamaremos asÃ­ncronamente a Celery para que corra HiGHS
             # optimizar_patio_task.delay()
             
             return Response({
@@ -227,16 +227,27 @@ class InitSimulacionView(APIView):
         eventos_a_crear = []
         consonantes = "BCDFGHJKLMNPRSTVWXYZ"
         for i in range(1, 86):
-            # Formato Chileno Nuevo: 4 Consonantes, 2 Números
+            # Formato Chileno Nuevo: 4 Consonantes, 2 NÃºmeros
             letras = "".join(random.choices(consonantes, k=4))
             numeros = str(random.randint(10, 99))
             patente = f"{letras}-{numeros}"
             
             grupo = random.choice(grupos)
             
-            horas_offset = random.gauss(8, 4) 
-            horas_offset = max(0, min(19, horas_offset))
-            eta_gps = base_time + timedelta(hours=horas_offset)
+            # Distribución basada en los datos históricos reales (Excel)
+            r_time = random.random()
+            if r_time < 0.10:
+                h = random.uniform(9, 12) # Mañana lenta (10%)
+            elif r_time < 0.40:
+                h = random.uniform(12.5, 14.5) # BLOQUE CRÍTICO 1: Post-almuerzo (30% = ~25 camiones en 2 horas)
+            elif r_time < 0.70:
+                h = random.uniform(15.5, 17.5) # BLOQUE CRÍTICO 2: Tarde (30% = ~25 camiones en 2 horas)
+            elif r_time < 0.90:
+                h = random.uniform(17.5, 20.0) # Tarde/Noche moderada (20%)
+            else:
+                h = random.uniform(20.0, 23.5) # Noche clústeres (10%)
+                
+            eta_gps = base_time.replace(hour=int(h), minute=int((h % 1) * 60))
             
             caos = random.random()
             es_externo = caos < 0.10
@@ -272,11 +283,11 @@ class InitSimulacionView(APIView):
         estado.reloj_virtual = base_time
         estado.save()
         
-        return Response({"status": "Simulación inicializada (09:00 hrs) con 85 camiones."}, status=status.HTTP_200_OK)
+        return Response({"status": "SimulaciÃ³n inicializada (09:00 hrs) con 85 camiones."}, status=status.HTTP_200_OK)
 
 class SimularPasoView(APIView):
     """
-    Desencadena el avance del reloj y optimización mediante Celery.
+    Desencadena el avance del reloj y optimizaciÃ³n mediante Celery.
     """
     def post(self, request):
         from .tasks import simular_paso_task
@@ -311,8 +322,10 @@ class FijarAsignacionView(APIView):
         try:
             asig = AsignacionGantt.objects.get(id=asignacion_id)
             
+            forzar_desviacion = request.data.get('forzar_desviacion', False)
             if asig.viaje.estado_actual not in ['ROMANA', 'PATIO']:
-                return Response({"error": "Solo se pueden fijar camiones en patio o romana."}, status=status.HTTP_400_BAD_REQUEST)
+                if not (asig.viaje.estado_actual == 'DESCARGANDO' and forzar_desviacion):
+                    return Response({"error": "Solo se pueden fijar camiones en patio o romana."}, status=status.HTTP_400_BAD_REQUEST)
                 
             from .models import SimulacionState
             estado = SimulacionState.objects.first()
@@ -351,3 +364,4 @@ class FijarAsignacionView(APIView):
             return Response({"error": "Asignacion no encontrada"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
